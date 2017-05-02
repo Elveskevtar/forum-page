@@ -1,4 +1,36 @@
 <?php
+	function login() {
+		$_SESSION['errMessage'] = "";
+		
+		// CONNECTING TO THE DATABASE
+		$connect = mysqli_connect('localhost', 'root', '', 'auth');
+		if (mysqli_connect_errno()) {
+			echo "Failed to connect to MySQL: " . mysqli_connect_error();
+		}
+		// ESCAPE STRING WHEN RECEIVED FROM USERS
+		$safe_username = mysqli_real_escape_string($connect, $_POST['user']);
+		$safe_password = mysqli_real_escape_string($connect, $_POST['password']);
+		
+		// QUERY
+		$query = "SELECT * FROM `users` WHERE `Username`='" . $safe_username . "' OR `Email`='" . $safe_username . "'";
+		$result = mysqli_query($connect, $query);
+		$row = mysqli_fetch_array($result);
+		
+		// CHECK IF QUERY RETURNED ANY ROWS
+		if (count($row) > 0) {
+			// CHECK QUERY AGAINST PASSWORD
+			if (password_verify($safe_password, $row['Password'])) {
+				$_SESSION['user'] = $row['Username'];
+				$_SESSION['email'] = $row['Email'];
+				header("location: home.php");
+			} else {
+				$_SESSION['errMessage'] = "Invalid password";
+			}
+		} else {
+			$_SESSION['errMessage'] = "Invalid username or email";
+		}
+	}
+	
 	if (!session_id()) {
 		session_start();
 		if (!isset($_SESSION['canary'])) {
@@ -15,6 +47,29 @@
 	if (isset($_SESSION['user'])) {
 		header("location: home.php");
 	}
+	
+	if (isset($_POST['login'])) {
+		login();
+	}
+
+	/*
+	// THIS CODE WILL EVENTUALLY BE USED FOR REGISTERING A USER
+	$timeTarget = 0.1; // 100 milliseconds
+	$cost = 8;
+	do {
+		$cost++;
+		$start = microtime(true);
+		$passHash = password_hash($dbpassword, PASSWORD_DEFAULT, ["cost" => $cost]);
+		$end = microtime(true);
+		$timeElapsed = $end - $start;
+	} while ($timeElapsed < $timeTarget);
+	echo "Appropriate Cost Found: " . $cost . " in " . $timeElapsed . "ms\nHashed Password: " . $passHash;
+	if (password_verify($dbpassword, $passHash)) {
+		echo "PASSWORD VERIFIED";
+	} else {
+		echo "PASSWORD DENIED";
+	}
+	echo $passHash;*/
 ?>
 <!DOCTYPE html>
 <html>
@@ -32,13 +87,17 @@
 			<div class="container-fluid" style="padding:0px 10px 0px 10px;">
 				<div class="row" style="margin:20px 5px 15px 5px;padding-bottom:5px;background-color:#246C60;color:#222222;">
 					<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-						<h1>Home Page <small style="color:#333333;">for all of your rating & review needs</small></h1>
+						<h1>Login Page <small style="color:#333333;">for all of your rating & review needs</small></h1>
 					</div>
 				</div>
 				<div class="row" style="margin:15px 5px 15px 5px;padding-bottom:5px;background-color:#2C4770;color:#222222;">
 					<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-						<h2 style="text-align:center;margin-bottom:15px;">Login</h1>
-						<form class="form-horizontal" method="post" action="login.php">
+						<h2 style="text-align:center;">Login</h2>
+						<?php
+						if (isset($_SESSION['errMessage'])) {
+							echo "<p style='color:#cc0000;' class='col-sm-offset-2 col-sm-10'>" . $_SESSION['errMessage'] . "</p>";
+						}?>
+						<form class="form-horizontal" method="post" action="">
 							<div class="form-group">
 								<label class="control-label col-sm-2" for="user">Username:</label>
 								<div class="col-sm-10">
@@ -62,11 +121,6 @@
 								</div>
 							</div>
 						</form>
-					</div>
-				</div>
-				<div class="row" style="margin:15px 5px 15px 5px;padding-bottom:5px;background-color:#152D54;color:#666666;">
-					<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-						<h2 style="text-align:center;"><a href="register.php">Register</a></h2>
 					</div>
 				</div>
 			</div>
