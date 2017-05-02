@@ -1,4 +1,33 @@
 <?php
+	if (isset($_COOKIE['pl'])) {
+		// CONNECTING TO THE DATABASE
+		$connect = mysqli_connect('localhost', 'root', '', 'auth');
+		if (mysqli_connect_errno()) {
+			echo "Failed to connect to MySQL: " . mysqli_connect_error();
+		}
+		
+		$query = "SELECT * FROM `users` WHERE `User_ID`='" . explode(":", $_COOKIE['pl'])[0] . "'";
+		$result = mysqli_query($connect, $query);
+		$row = mysqli_fetch_array($result);
+		
+		if (count($row) > 0) {
+			if ($row['Sess_Expire'] < time()) {
+				unset($_COOKIE['pl']);
+				setcookie('pl', '', time() - 3600);
+				$query = "UPDATE `users` SET `Sess_Token`=NULL, `Sess_Expire`=NULL WHERE `User_ID`='" . explode(":", $_COOKIE['pl'])[0] . "'";
+				mysqli_query($connect, $query);
+			} elseif (hash_equals($row['Sess_Token'], hash("sha256", explode(":", $_COOKIE['pl'])[1], true))) {
+				$_SESSION['id'] = $row['User_ID'];
+				$_SESSION['user'] = $row['Username'];
+				$_SESSION['email'] = $row['Email'];
+				header("location: home.php");
+			}
+		} else {
+			unset($_COOKIE['pl']);
+			setcookie('pl', '', time() - 3600);
+		}
+	}
+	
 	if (!session_id()) {
 		session_start();
 		if (!isset($_SESSION['canary'])) {
@@ -53,7 +82,7 @@
 							</div>
 							<div class="form-group">
 								<div class="col-sm-offset-2 col-sm-10">
-									<label><input type="checkbox" name="remember"> Stay Signed In</label>
+									<label><input type="checkbox" name="remember" value="on"> Stay Signed In</label>
 								</div>
 							</div>
 							<div class="form-group">

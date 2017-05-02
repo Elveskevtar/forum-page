@@ -1,4 +1,34 @@
 <?php
+	if (isset($_COOKIE['pl'])) {
+		// CONNECTING TO THE DATABASE
+		$connect = mysqli_connect('localhost', 'root', '', 'auth');
+		if (mysqli_connect_errno()) {
+			echo "Failed to connect to MySQL: " . mysqli_connect_error();
+		}
+		
+		$query = "SELECT * FROM `users` WHERE `User_ID`='" . explode(":", $_COOKIE['pl'])[0] . "'";
+		$result = mysqli_query($connect, $query);
+		$row = mysqli_fetch_array($result);
+		echo print_r(row);
+		
+		if (count($row) > 0) {
+			if ($row['Sess_Expire'] < time()) {
+				unset($_COOKIE['pl']);
+				setcookie('pl', '', time() - 3600);
+				$query = "UPDATE `users` SET `Sess_Token`=NULL, `Sess_Expire`=NULL WHERE `User_ID`='" . explode(":", $_COOKIE['pl'])[0] . "'";
+				mysqli_query($connect, $query);
+			} elseif (hash_equals($row['Sess_Token'], hash("sha256", explode(":", $_COOKIE['pl'])[1], true))) {
+				$_SESSION['id'] = $row['User_ID'];
+				$_SESSION['user'] = $row['Username'];
+				$_SESSION['email'] = $row['Email'];
+				//header("location: home.php");
+			}
+		} else {
+			unset($_COOKIE['pl']);
+			setcookie('pl', '', time() - 3600);
+		}
+	}
+
 	function login() {
 		$_SESSION['errMessage'] = "";
 		
@@ -7,6 +37,7 @@
 		if (mysqli_connect_errno()) {
 			echo "Failed to connect to MySQL: " . mysqli_connect_error();
 		}
+		
 		// ESCAPE STRING WHEN RECEIVED FROM USERS
 		$safe_username = mysqli_real_escape_string($connect, $_POST['user']);
 		$safe_password = mysqli_real_escape_string($connect, $_POST['password']);
@@ -20,8 +51,17 @@
 		if (count($row) > 0) {
 			// CHECK QUERY AGAINST PASSWORD
 			if (password_verify($safe_password, $row['Password'])) {
+				$_SESSION['id'] = $row['User_ID'];
 				$_SESSION['user'] = $row['Username'];
 				$_SESSION['email'] = $row['Email'];
+				if (isset($_POST['remember'])) {
+					$token = bin2hex(random_bytes(20));
+					$pl = $_SESSION['id'] . ":" . $token;
+					$expire = time()+60*60*24*7;
+					setcookie("pl", $pl, $expire);
+					$query = "UPDATE `users` SET `Sess_Token`='" . hash("sha256", $token, true) . "', `Sess_Expire`='" . $expire . "' WHERE `Username`='" . $_SESSION['user'] . "'";
+					mysqli_query($connect, $query);
+				}
 				header("location: home.php");
 			} else {
 				$_SESSION['errMessage'] = "Invalid password";
@@ -112,7 +152,7 @@
 							</div>
 							<div class="form-group">
 								<div class="col-sm-offset-2 col-sm-10">
-									<label><input type="checkbox" name="remember"> Stay Signed In</label>
+									<label><input type="checkbox" name="remember" value="on"> Stay Signed In</label>
 								</div>
 							</div>
 							<div class="form-group">
