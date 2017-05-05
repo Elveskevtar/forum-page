@@ -1,0 +1,1 @@
+DELETE FROM `persistant_login` WHERE `Sess_Expire` < UNIX_TIMESTAMP(NOW());

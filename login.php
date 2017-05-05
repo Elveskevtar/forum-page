@@ -6,22 +6,29 @@
 			echo "Failed to connect to MySQL: " . mysqli_connect_error();
 		}
 		
-		$query = "SELECT * FROM `users` WHERE `User_ID`='" . explode(":", $_COOKIE['pl'])[0] . "'";
+		// CHECK IF COOKIE SELECTOR MATCHES ANYTHING IN DB
+		$query = "SELECT * FROM `persistant_login` WHERE `Selector`='" . explode(":", $_COOKIE['pl'])[0] . "'";
 		$result = mysqli_query($connect, $query);
 		$row = mysqli_fetch_array($result);
-		echo print_r(row);
 		
+		// CHECK IF QUERY RETURNED ANY ROWS
 		if (count($row) > 0) {
 			if ($row['Sess_Expire'] < time()) {
 				unset($_COOKIE['pl']);
 				setcookie('pl', '', time() - 3600);
-				$query = "UPDATE `users` SET `Sess_Token`=NULL, `Sess_Expire`=NULL WHERE `User_ID`='" . explode(":", $_COOKIE['pl'])[0] . "'";
+				$query = "DELETE FROM `persistant_login` WHERE `Selector`='" . explode(":", $_COOKIE['pl'])[0] . "'";
 				mysqli_query($connect, $query);
 			} elseif (hash_equals($row['Sess_Token'], hash("sha256", explode(":", $_COOKIE['pl'])[1], true))) {
+				$query = "SELECT * FROM `users` WHERE `User_ID`='" . $row['User_ID'] . "'";
+				$result = mysqli_query($connect, $query);
+				$row = mysqli_fetch_array($result);
 				$_SESSION['id'] = $row['User_ID'];
 				$_SESSION['user'] = $row['Username'];
 				$_SESSION['email'] = $row['Email'];
-				//header("location: home.php");
+				header("location: home.php");
+			} else {
+				unset($_COOKIE['pl']);
+				setcookie('pl', '', time() - 3600);
 			}
 		} else {
 			unset($_COOKIE['pl']);
@@ -56,11 +63,11 @@
 				$_SESSION['email'] = $row['Email'];
 				if (isset($_POST['remember'])) {
 					$token = bin2hex(random_bytes(20));
-					$pl = $_SESSION['id'] . ":" . $token;
 					$expire = time()+60*60*24*7;
-					setcookie("pl", $pl, $expire);
-					$query = "UPDATE `users` SET `Sess_Token`='" . hash("sha256", $token, true) . "', `Sess_Expire`='" . $expire . "' WHERE `Username`='" . $_SESSION['user'] . "'";
+					$query = "INSERT INTO `persistant_login` (`User_ID`, `Sess_Token`, `Sess_Expire`) VALUES ('" . $_SESSION['id'] . "', '" . hash("sha256", $token, true) . "', '" . $expire . "')";
 					mysqli_query($connect, $query);
+					$pl = mysqli_insert_id($connect) . ":" . $token;
+					setcookie("pl", $pl, $expire);
 				}
 				header("location: home.php");
 			} else {
@@ -99,17 +106,18 @@
 	do {
 		$cost++;
 		$start = microtime(true);
-		$passHash = password_hash($dbpassword, PASSWORD_DEFAULT, ["cost" => $cost]);
+		$passHash = password_hash("West7572", PASSWORD_DEFAULT, ["cost" => $cost]);
 		$end = microtime(true);
 		$timeElapsed = $end - $start;
 	} while ($timeElapsed < $timeTarget);
 	echo "Appropriate Cost Found: " . $cost . " in " . $timeElapsed . "ms\nHashed Password: " . $passHash;
-	if (password_verify($dbpassword, $passHash)) {
+	if (password_verify("West7572", $passHash)) {
 		echo "PASSWORD VERIFIED";
 	} else {
 		echo "PASSWORD DENIED";
 	}
-	echo $passHash;*/
+	echo $passHash;
+	*/
 ?>
 <!DOCTYPE html>
 <html>
